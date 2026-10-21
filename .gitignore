@@ -35,3 +35,5 @@ build/
 ### Configuracion local (contraseñas) ###
 local.properties
 database/usuario_prueba.txt
+*.log
+.metadata/
