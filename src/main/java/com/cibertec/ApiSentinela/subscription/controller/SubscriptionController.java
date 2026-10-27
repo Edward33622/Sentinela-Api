@@ -27,6 +27,12 @@ public class SubscriptionController {
         return sub != null && "FAMILIA".equalsIgnoreCase(sub.getPlanId());
     }
 
+    public static boolean hasSmsBackup(Long userId) {
+        if (userId == null) return false;
+        SubscriptionStatusResponse sub = userSubscriptions.get(userId);
+        return sub != null && (Boolean.TRUE.equals(sub.isHasSmsBackup()) || "PRO".equalsIgnoreCase(sub.getPlanId()) || "FAMILIA".equalsIgnoreCase(sub.getPlanId()));
+    }
+
     @Operation(summary = "Obtener planes de suscripción disponibles")
     @GetMapping("/plans")
     public ResponseEntity<List<SubscriptionPlanResponse>> getAvailablePlans() {

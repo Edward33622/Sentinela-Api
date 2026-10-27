@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import com.cibertec.ApiSentinela.contact.dtos.response.EmergencyAlertResult;
 import com.cibertec.ApiSentinela.contact.dtos.response.RecipientResult;
+import com.cibertec.ApiSentinela.subscription.controller.SubscriptionController;
 
 import com.cibertec.ApiSentinela.contact.dtos.request.CreateContactRequest;
 import com.cibertec.ApiSentinela.contact.dtos.response.ContactResponse;
@@ -57,6 +58,9 @@ public class ContactService {
 
         String message = buildEmergencyMessage(user, location);
 
+        boolean userHasSmsBackup = SubscriptionController.hasSmsBackup(user.getId());
+        String smsFromPhone = fromPhone != null ? fromPhone.replace("whatsapp:", "").trim() : null;
+
         for (Contact contact : contacts) {
             if (contact.getPhoneNumber() != null) {
                 String normalized = formatPhoneNumber(contact.getPhoneNumber());
@@ -64,6 +68,7 @@ public class ContactService {
                 RecipientResult recipient = new RecipientResult(contact.getFullName(), contact.getPhoneNumber(), normalized);
                 result.setAttempted(result.getAttempted() + 1);
 
+                boolean whatsAppSent = false;
                 System.out.println("Enviando mensaje WhatsApp a " + normalized + "...");
                 try {
                     Message msg = Message.creator(
@@ -72,18 +77,46 @@ public class ContactService {
                             message
                     ).create();
 
+                    whatsAppSent = true;
                     recipient.setSent(true);
                     recipient.setSid(msg.getSid());
-                    result.addRecipient(recipient);
-                    result.setSent(result.getSent() + 1);
                     System.out.println("Mensaje WhatsApp enviado a " + normalized + " SID: " + msg.getSid());
                 } catch (Exception e) {
-                    recipient.setSent(false);
-                    recipient.setError(e.getMessage());
-                    result.addRecipient(recipient);
-                    result.setFailed(result.getFailed() + 1);
-                    System.err.println("Error enviando a " + normalized + ": " + e.getMessage());
+                    System.err.println("Error enviando WhatsApp a " + normalized + ": " + e.getMessage());
+                    recipient.setError("WhatsApp: " + e.getMessage());
                 }
+
+                // Despacho de SMS de respaldo para planes PRO / FAMILIA o como fallback si WhatsApp falló
+                if (userHasSmsBackup || !whatsAppSent) {
+                    if (smsFromPhone != null && !smsFromPhone.isBlank()) {
+                        try {
+                            System.out.println("Enviando SMS de respaldo a " + normalized + "...");
+                            Message smsMsg = Message.creator(
+                                    new PhoneNumber(normalized),
+                                    new PhoneNumber(smsFromPhone),
+                                    message
+                            ).create();
+                            System.out.println("SMS de respaldo enviado a " + normalized + " SID: " + smsMsg.getSid());
+                            if (!whatsAppSent) {
+                                recipient.setSent(true);
+                                recipient.setSid(smsMsg.getSid());
+                                recipient.setError(null);
+                            }
+                        } catch (Exception smsEx) {
+                            System.err.println("Aviso SMS respaldo (" + normalized + "): " + smsEx.getMessage());
+                            if (!whatsAppSent) {
+                                recipient.setError("WhatsApp falló y SMS: " + smsEx.getMessage());
+                            }
+                        }
+                    }
+                }
+
+                if (recipient.isSent()) {
+                    result.setSent(result.getSent() + 1);
+                } else {
+                    result.setFailed(result.getFailed() + 1);
+                }
+                result.addRecipient(recipient);
             }
         }
 
