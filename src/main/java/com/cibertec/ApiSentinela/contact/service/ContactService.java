@@ -16,6 +16,7 @@ import com.cibertec.ApiSentinela.contact.model.Contact;
 import com.cibertec.ApiSentinela.contact.repository.ContactRepository;
 import com.cibertec.ApiSentinela.user.model.User;
 import com.cibertec.ApiSentinela.user.repository.UserRepository;
+import com.cibertec.ApiSentinela.utils.TwilioConfig;
 import com.twilio.rest.api.v2010.account.Message;
 import com.twilio.type.PhoneNumber;
 
@@ -35,6 +36,9 @@ public class ContactService {
     private String fromPhone;
     @Value("${twilio.defaultCountryCode:+51}")
     private String defaultCountryCode;
+    // Número de Twilio habilitado para SMS (distinto del número de WhatsApp). Vacío = sin SMS de respaldo
+    @Value("${twilio.smsNumber:}")
+    private String smsNumber;
 
     
     public EmergencyAlertResult sendEmergencyWhatsApp(User user, String location) {
@@ -56,10 +60,24 @@ public class ContactService {
             return result;
         }
 
+        // Sin credenciales de Twilio no se intenta el envío: cada contacto queda con un error claro
+        if (!TwilioConfig.isConfigurado()) {
+            System.err.println("[Twilio] Alerta no enviada: faltan las credenciales de Twilio en local.properties.");
+            for (Contact contact : contacts) {
+                RecipientResult recipient = new RecipientResult(contact.getFullName(), contact.getPhoneNumber(),
+                        formatPhoneNumber(contact.getPhoneNumber()));
+                recipient.setSent(false);
+                recipient.setError("Twilio no configurado: agrega TWILIO_ACCOUNT_SID y TWILIO_AUTH_TOKEN en local.properties");
+                result.addRecipient(recipient);
+                result.setFailed(result.getFailed() + 1);
+            }
+            return result;
+        }
+
         String message = buildEmergencyMessage(user, location);
 
         boolean userHasSmsBackup = SubscriptionController.hasSmsBackup(user.getId());
-        String smsFromPhone = fromPhone != null ? fromPhone.replace("whatsapp:", "").trim() : null;
+        String smsFromPhone = smsNumber != null ? smsNumber.replace("whatsapp:", "").trim() : null;
 
         for (Contact contact : contacts) {
             if (contact.getPhoneNumber() != null) {
