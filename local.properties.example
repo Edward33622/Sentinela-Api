@@ -1,0 +1,26 @@
+# Plantilla de configuracion local. Copiala como "local.properties" (ese archivo NO se sube a Git).
+# Escribe despues del signo = la contraseña de tu usuario de MySQL y guarda el archivo.
+DB_PASSWORD=
+
+# Solo cambia estos si tu MySQL no usa los valores por defecto:
+# DB_USER=root
+# DB_HOST=localhost
+# DB_PORT=3306
+# DB_NAME=sentinela_bd
+
+# ---------------------------------------------------------------------------
+# TWILIO: credenciales para enviar las alertas por WhatsApp (y SMS de respaldo).
+# Copialas desde https://console.twilio.com (Account Info) y pegalas despues del "=".
+# Mientras esten vacias, la API arranca normal pero NO envia las alertas.
+# ---------------------------------------------------------------------------
+TWILIO_ACCOUNT_SID=
+TWILIO_AUTH_TOKEN=
+
+# Numero remitente de WhatsApp. Por defecto es el sandbox de Twilio (+14155238886).
+# Si usas el sandbox, cada contacto debe enviar antes a ese numero, por WhatsApp,
+# el mensaje "join <codigo>" que aparece en la consola de Twilio.
+# TWILIO_PHONE_NUMBER=whatsapp:+14155238886
+
+# Opcional: numero de Twilio habilitado para SMS (formato +1XXXXXXXXXX).
+# Si lo dejas vacio, no se envia el SMS de respaldo.
+# TWILIO_SMS_NUMBER=
